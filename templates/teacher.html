@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Teacher Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+
+<body class="teacher-bg">
+
+<div class="theme-toggle" onclick="toggleTheme()">
+    <span id="themeLabel">🌙 Dark</span>
+    <div class="toggle-track"><div class="toggle-thumb"></div></div>
+</div>
+
+<h1>👩‍🏫 Teacher Dashboard</h1>
+
+<p class="share">
+  Share with students → <b>http://YOUR_IP:5000/student</b>
+</p>
+
+<div class="controls">
+  <button id="classBtn" class="btn purple" onclick="toggleClass()">✦ Start Class</button>
+  <button id="camBtn"   class="btn green"  onclick="toggleCamera()">📷 Camera ON</button>
+  <button id="micBtn"   class="btn green"  onclick="toggleMic()">🎙 Mic ON</button>
+</div>
+
+<div class="main-layout">
+
+  <div class="video-grid">
+    <div class="video-box">
+      <h3>Your Video</h3>
+      <video id="localVideo" autoplay muted></video>
+    </div>
+    <div class="video-box">
+      <h3>Student Video</h3>
+      <video id="remoteVideo" autoplay></video>
+      <p id="emotionText">✦ Emotion: Detecting…</p>
+    </div>
+  </div>
+
+  <div class="chat-panel">
+    <div class="chat-header">✦ Class Chat</div>
+    <div class="chat-messages" id="chatMessages"></div>
+    <div class="chat-input-row">
+      <input type="text" id="chatInput" placeholder="Write a message…" onkeydown="chatEnter(event)" />
+      <button onclick="sendChat()">➤</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function toggleTheme(){
+    document.body.classList.toggle('dark');
+    const isDark = document.body.classList.contains('dark');
+    document.getElementById('themeLabel').textContent = isDark ? '☀️ Light' : '🌙 Dark';
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+}
+if(localStorage.getItem('theme') === 'dark'){
+    document.body.classList.add('dark');
+    document.getElementById('themeLabel').textContent = '☀️ Light';
+}
+
+const socket = io();
+const ROLE = "Teacher";
+let localStream;
+let pc = new RTCPeerConnection();
+let started = false;
+
+const EMOTION_STYLE = {
+  "NEUTRAL":    { bg: "#f0faf5", color: "#2e7d5a", icon: "😊" },
+  "BORED":      { bg: "#fdf5e0", color: "#a07820", icon: "😴" },
+  "CONFUSED":   { bg: "#fdf0e0", color: "#a06020", icon: "😕" },
+  "FRUSTRATED": { bg: "#fdf0f0", color: "#a02020", icon: "😤" },
+};
+
+navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+.then(stream => {
+  localStream = stream;
+  localVideo.srcObject = stream;
+  stream.getTracks().forEach(track => pc.addTrack(track, stream));
+});
+
+pc.ontrack = e => remoteVideo.srcObject = e.streams[0];
+pc.onicecandidate = e => e.candidate && socket.emit("ice-candidate", e.candidate);
+
+async function toggleClass(){
+  if (!started){
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    socket.emit("offer", offer);
+    classBtn.innerText = "⏹ End Class";
+    classBtn.className = "btn red";
+  } else {
+    location.reload();
+  }
+  started = !started;
+}
+
+socket.on("answer", a => pc.setRemoteDescription(a));
+socket.on("ice-candidate", c => pc.addIceCandidate(c));
+
+socket.on("emotion_to_teacher", data => {
+  const em  = data.emotion;
+  const el  = document.getElementById("emotionText");
+  const cfg = EMOTION_STYLE[em] || { bg: "#fdf8f0", color: "#b8860b", icon: "✦" };
+  el.innerText = cfg.icon + " Emotion: " + em;
+  el.style.background = cfg.bg;
+  el.style.color = cfg.color;
+});
+
+function toggleCamera(){
+  const t = localStream.getVideoTracks()[0];
+  t.enabled = !t.enabled;
+  camBtn.className = t.enabled ? "btn green" : "btn red";
+  camBtn.innerText  = t.enabled ? "📷 Camera ON" : "📷 Camera OFF";
+}
+
+function toggleMic(){
+  const t = localStream.getAudioTracks()[0];
+  t.enabled = !t.enabled;
+  micBtn.className = t.enabled ? "btn green" : "btn red";
+  micBtn.innerText  = t.enabled ? "🎙 Mic ON" : "🎙 Mic OFF";
+}
+
+function sendChat(){
+  const input = document.getElementById("chatInput");
+  const msg = input.value.trim();
+  if (!msg) return;
+  socket.emit("chat_message", { sender: ROLE, text: msg });
+  input.value = "";
+}
+
+function chatEnter(e){ if (e.key === "Enter") sendChat(); }
+
+socket.on("chat_message", data => {
+  const box  = document.getElementById("chatMessages");
+  const isMe = data.sender === ROLE;
+  const bubble = document.createElement("div");
+  bubble.className = "msg-bubble " + (isMe ? "me" : "other");
+  bubble.innerHTML = `<div class="msg-sender">${data.sender}</div>${escHtml(data.text)}`;
+  box.appendChild(bubble);
+  box.scrollTop = box.scrollHeight;
+});
+
+function escHtml(s){
+  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+</script>
+</body>
+</html>

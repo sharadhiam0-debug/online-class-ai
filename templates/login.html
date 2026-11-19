@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Online Class Login</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body class="login-bg">
+
+<!-- Light / Dark toggle -->
+<div class="theme-toggle" onclick="toggleTheme()">
+    <span id="themeLabel">🌙 Dark</span>
+    <div class="toggle-track"><div class="toggle-thumb"></div></div>
+</div>
+
+<div class="login-card">
+    <h1>🎓 Online Class System</h1>
+    <div class="gold-divider"></div>
+    <p>AI-powered emotion detection for smarter learning</p>
+
+    <div class="section">
+        <h2>👩‍🏫 Teacher</h2>
+        <h3>Start and manage your class session</h3>
+        <a href="/teacher"><button class="btn purple">✦ Start Class</button></a>
+    </div>
+
+    <div class="section">
+        <h2>🧑‍🎓 Student</h2>
+        <h3>Join a live class session</h3>
+        <a href="/student"><button class="btn blue">✦ Join Class</button></a>
+    </div>
+</div>
+
+<script>
+function toggleTheme(){
+    document.body.classList.toggle('dark');
+    const isDark = document.body.classList.contains('dark');
+    document.getElementById('themeLabel').textContent = isDark ? '☀️ Light' : '🌙 Dark';
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+}
+if(localStorage.getItem('theme') === 'dark'){
+    document.body.classList.add('dark');
+    document.getElementById('themeLabel').textContent = '☀️ Light';
+}
+</script>
+
+</body>
+</html>
